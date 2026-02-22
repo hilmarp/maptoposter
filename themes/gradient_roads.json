@@ -6,10 +6,18 @@
     "gradient_color": "#FFFFFF",
     "water": "#D5D5D5",
     "parks": "#EFEFEF",
+    "forest": "#E0E8E0",
+    "buildings": "#EBEBEB",
     "road_motorway": "#050505",
     "road_primary": "#151515",
     "road_secondary": "#2A2A2A",
     "road_tertiary": "#404040",
     "road_residential": "#555555",
-    "road_default": "#404040"
+    "road_default": "#404040",
+    "railway": "#101010",
+    "railway_dash": "#FFFFFF",
+    "cycle_route": "#505050",
+    "admin_boundary": "#AAAAAA",
+    "historic": "#202020",
+    "poi": "#000000"
 }
