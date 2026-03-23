@@ -5,9 +5,9 @@
     "text": "#1A5F7A",
     "gradient_color": "#F0F8FA",
     "water": "#B8D8E8",
-    "parks": "#D8EAE8",
+    "parks": "#C4DDE8",
     "forest": "#C0DDD8",
-    "buildings": "#D4E8EC",
+    "buildings": "#DCE8E4",
     "road_motorway": "#1A5F7A",
     "road_primary": "#2A7A9A",
     "road_secondary": "#4A9AB8",
@@ -19,5 +19,6 @@
     "cycle_route": "#50A8A0",
     "admin_boundary": "#70B8D0",
     "historic": "#2A7A9A",
-    "poi": "#0A7A9A"
+    "poi": "#0A7A9A",
+    "directional_colormap": "cool"
 }

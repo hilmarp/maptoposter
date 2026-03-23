@@ -27,7 +27,7 @@ from geopandas import GeoDataFrame
 from geopy.geocoders import Nominatim
 from lat_lon_parser import parse
 from matplotlib.font_manager import FontProperties
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Rectangle
 from networkx import MultiDiGraph
 from shapely.geometry import Point
 from shapely.geometry import box as shapely_box
@@ -457,6 +457,51 @@ def apply_paper_texture(ax, crop_xlim, crop_ylim, opacity=0.07):
     )
 
 
+def apply_road_glow(
+    ax, g_proj, edge_colors: list[str], edge_widths: list[float], intensity: float
+) -> None:
+    """Draw road bloom/halo passes before the main road layer.
+    Works best on dark themes (noir, neon_cyberpunk, midnight_blue)."""
+    passes = [
+        (6.0, 0.03 * intensity),
+        (3.5, 0.06 * intensity),
+        (2.0, 0.10 * intensity),
+    ]
+    for width_mult, alpha in passes:
+        glow_widths = [w * width_mult for w in edge_widths]
+        ox.plot_graph(
+            g_proj,
+            ax=ax,
+            bgcolor=THEME["bg"],
+            node_size=0,
+            edge_color=edge_colors,
+            edge_linewidth=glow_widths,
+            edge_alpha=alpha,
+            show=False,
+            close=False,
+        )
+
+
+def draw_poster_border(ax, style: str = "single", scale_factor: float = 1.0) -> None:
+    """Draw a thin decorative border inset from the axes edge."""
+    color = THEME["text"]
+    alpha = 0.55
+    inset = 0.018
+    lw = 1.0 * scale_factor
+    ax.add_patch(Rectangle(
+        (inset, inset), 1 - 2 * inset, 1 - 2 * inset,
+        transform=ax.transAxes, fill=False,
+        edgecolor=color, linewidth=lw, alpha=alpha, zorder=14,
+    ))
+    if style == "double":
+        inset2 = inset + 0.013
+        ax.add_patch(Rectangle(
+            (inset2, inset2), 1 - 2 * inset2, 1 - 2 * inset2,
+            transform=ax.transAxes, fill=False,
+            edgecolor=color, linewidth=lw * 0.5, alpha=alpha * 0.7, zorder=14,
+        ))
+
+
 # ---------------------------------------------------------------------------
 # Graph / feature helpers
 # ---------------------------------------------------------------------------
@@ -481,6 +526,22 @@ def get_edge_colors_by_type(g) -> list[str]:
         else:
             color = THEME["road_default"]
         edge_colors.append(color)
+    return edge_colors
+
+
+def get_edge_colors_directional(g, colormap_name: str = "hsv") -> list[str]:
+    """Color each road segment by its compass bearing (0–180°), so N/S and E/W streets
+    get distinct hues while opposing directions share a color."""
+    cmap = plt.colormaps[colormap_name]
+    nodes_data = dict(g.nodes(data=True))
+    edge_colors = []
+    for u, v, _ in g.edges(data=True):
+        u_node = nodes_data.get(u, {})
+        v_node = nodes_data.get(v, {})
+        dx = v_node.get("x", 0) - u_node.get("x", 0)
+        dy = v_node.get("y", 0) - u_node.get("y", 0)
+        angle = np.degrees(np.arctan2(dy, dx)) % 180  # 0–180 so N↑ == S↓
+        edge_colors.append(mcolors.to_hex(cmap(angle / 180.0)))
     return edge_colors
 
 
@@ -716,6 +777,11 @@ def create_poster(
     subtitle_text: str | None = None,
     edition_text: str | None = None,
     dpi: int = 300,
+    border: bool = False,
+    border_style: str = "single",
+    road_glow: bool = False,
+    road_glow_intensity: float = 0.5,
+    directional_roads: bool = False,
 ) -> None:
     if poi_dict is None:
         poi_dict = {}
@@ -994,11 +1060,18 @@ def create_poster(
             )
 
     # Layer 2: Road casing pass (optional)
-    edge_colors = get_edge_colors_by_type(g_proj)
+    if directional_roads:
+        colormap_name = THEME.get("directional_colormap", "hsv")
+        edge_colors = get_edge_colors_directional(g_proj, colormap_name)
+    else:
+        edge_colors = get_edge_colors_by_type(g_proj)
     edge_widths = [w * line_scale for w in get_edge_widths_by_type(g_proj)]
 
     if road_casing:
         apply_road_casing(ax, g_proj, edge_widths, line_scale)
+
+    if road_glow:
+        apply_road_glow(ax, g_proj, edge_colors, edge_widths, road_glow_intensity)
 
     # Layer 2: Roads
     print("Applying road hierarchy colors...")
@@ -1178,6 +1251,8 @@ def create_poster(
         draw_compass_rose(ax, scale_factor)
     if show_scale_bar:
         draw_scale_bar(ax, crop_xlim, scale_factor, units_m=1000)
+    if border:
+        draw_poster_border(ax, border_style, scale_factor)
 
     # -------------------------------------------------------------------------
     # Typography
@@ -1426,6 +1501,11 @@ def run_batch(
                 subtitle_text=subtitle,
                 edition_text=edition,
                 dpi=global_args.dpi,
+                border=global_args.border,
+                border_style=global_args.border_style,
+                road_glow=global_args.road_glow,
+                road_glow_intensity=global_args.road_glow_intensity,
+                directional_roads=global_args.directional_roads,
             )
         except Exception as e:
             print(f"  ✗ Failed: {e}")
@@ -1583,6 +1663,35 @@ if __name__ == "__main__":
     parser.add_argument("--vignette", dest="use_vignette", action="store_true")
     parser.add_argument("--no-compass", dest="show_compass", action="store_false")
     parser.add_argument("--no-scale-bar", dest="show_scale_bar", action="store_false")
+    parser.add_argument("--border", dest="border", action="store_true")
+    parser.add_argument("--no-border", dest="border", action="store_false")
+    parser.add_argument(
+        "--border-style",
+        dest="border_style",
+        type=str,
+        default="single",
+        choices=["single", "double"],
+        help="Border style: single line or double line (default: single)",
+    )
+    parser.add_argument(
+        "--road-glow",
+        dest="road_glow",
+        action="store_true",
+        help="Add bloom/halo glow effect to roads (best on dark themes)",
+    )
+    parser.add_argument(
+        "--road-glow-intensity",
+        dest="road_glow_intensity",
+        type=float,
+        default=0.5,
+        help="Glow intensity multiplier (default: 0.5)",
+    )
+    parser.add_argument(
+        "--directional-roads",
+        dest="directional_roads",
+        action="store_true",
+        help="Color roads by compass bearing instead of road type",
+    )
 
     parser.set_defaults(
         show_buildings=True,
@@ -1599,6 +1708,11 @@ if __name__ == "__main__":
         road_casing=False,
         paper_texture=False,
         cmyk_safe=False,
+        border=False,
+        border_style="single",
+        road_glow=False,
+        road_glow_intensity=0.5,
+        directional_roads=False,
     )
 
     args = parser.parse_args()
@@ -1717,6 +1831,11 @@ if __name__ == "__main__":
                 subtitle_text=args.subtitle,
                 edition_text=args.edition,
                 dpi=args.dpi,
+                border=args.border,
+                border_style=args.border_style,
+                road_glow=args.road_glow,
+                road_glow_intensity=args.road_glow_intensity,
+                directional_roads=args.directional_roads,
             )
 
         print("\n" + "=" * 50)

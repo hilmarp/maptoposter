@@ -19,5 +19,6 @@
     "cycle_route": "#8B9E6A",
     "admin_boundary": "#C9846A",
     "historic": "#A0522D",
-    "poi": "#F75E00"
+    "poi": "#D0601A",
+    "directional_colormap": "YlOrRd"
 }

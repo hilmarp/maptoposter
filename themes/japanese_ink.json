@@ -4,7 +4,7 @@
     "bg": "#FAF8F5",
     "text": "#2C2C2C",
     "gradient_color": "#FAF8F5",
-    "water": "#E8E4E0",
+    "water": "#D8DFE8",
     "parks": "#F0EDE8",
     "forest": "#E0E8DC",
     "buildings": "#ECEAE6",
@@ -16,7 +16,7 @@
     "road_default": "#909090",
     "railway": "#2C2C2C",
     "railway_dash": "#FAF8F5",
-    "cycle_route": "#909090",
+    "cycle_route": "#6A8070",
     "admin_boundary": "#C0B8B0",
     "historic": "#8B2500",
     "poi": "#8B2500"

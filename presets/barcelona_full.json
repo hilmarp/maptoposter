@@ -1,0 +1,49 @@
+{
+    "city": "Barcelona",
+    "country": "Spain",
+
+    "latitude": "41.3851",
+    "longitude": "2.1734",
+
+    "theme": "terracotta",
+    "distance": 10000,
+    "width": 12,
+    "height": 16,
+    "format": "png",
+    "output": "out",
+    "dpi": 300,
+
+    "font_family": "Playfair Display",
+    "body_font_family": "Raleway",
+    "display_city": "Barcelona",
+    "display_country": "Spain",
+    "subtitle": "Ciudad Condal",
+    "edition": "No. 1",
+    "text_position": "bottom",
+    "coord_format": "dms",
+
+    "road_casing": true,
+    "road_glow": false,
+    "road_glow_intensity": 0.5,
+    "directional_roads": true,
+
+    "border": true,
+    "border_style": "double",
+
+    "use_vignette": false,
+    "paper_texture": true,
+    "paper_texture_opacity": 0.07,
+    "cmyk_safe": false,
+    "line_scale": 1.0,
+
+    "show_buildings": false,
+    "show_forest": true,
+    "show_waterways": true,
+    "show_railway": true,
+    "show_admin_boundary": false,
+    "show_districts": false,
+    "show_historic": true,
+    "show_cycle_routes": false,
+    "show_compass": true,
+    "show_scale_bar": true
+}
