@@ -135,3 +135,11 @@ uv run ./create_map_poster.py --list-themes
 - **Coordinate override** — set `"latitude"` and `"longitude"` to pin the exact centre of the map rather than relying on geocoding.
 - **Fonts** — `"font_family"` controls the city name typeface; `"body_font_family"` controls country/coordinates/subtitle. Both accept any font name installed in the `fonts/` folder.
 - **DPI** — use `150` for quick proofing, `300` for standard print, `600` for large-format printing.
+- **Paper sizes** — set `width` and `height` in inches to match your print size:
+
+  | Size | Portrait (w × h) | Landscape (w × h) |
+  |------|-----------------|-------------------|
+  | A5   | `5.83 × 8.27`   | `8.27 × 5.83`     |
+  | A4   | `8.27 × 11.69`  | `11.69 × 8.27`    |
+  | A3   | `11.69 × 16.54` | `16.54 × 11.69`   |
+  | A3+  | `12.95 × 19.02` | `19.02 × 12.95`   |
