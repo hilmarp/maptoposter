@@ -90,6 +90,79 @@ See [`presets/barcelona_full.json`](presets/barcelona_full.json) for a preset th
 | Road casing | `"road_casing": true` | Adds a darker outline around each road |
 | Vignette | `"use_vignette": true` | Radial fade instead of top/bottom gradient |
 | CMYK-safe colours | `"cmyk_safe": true` | Desaturates slightly for commercial print |
+| Custom route | `"route": [[lat, lon], ...]` or `"route_file"` | Highlight a run, hike, or walk. See [Custom routes and markers](#custom-routes-and-markers) |
+| Custom marker | `"marker": [lat, lon]` | Pin a single location with a label. See [Custom routes and markers](#custom-routes-and-markers) |
+
+---
+
+## Custom routes and markers
+
+Two ways to personalise a poster beyond the standard city render: a highlighted route (a run, hike, first-date walk, marathon course) and a single pinned location (your house, where you got engaged, a favourite bar).
+
+### Highlighting a route
+
+Give it either an inline list of `[lat, lon]` points, or a GPX file (track or route points are both supported):
+
+```json
+{
+    "city": "Boston",
+    "country": "USA",
+    "theme": "noir",
+
+    "route": [
+        [42.3467, -71.0972],
+        [42.3398, -71.0892],
+        [42.3355, -71.0745]
+    ],
+    "route_color": "#FF3B30",
+    "route_width": 2.5,
+    "route_style": "solid",
+    "route_glow": true
+}
+```
+
+Or from the command line, with a GPX file exported from Strava/Garmin/etc.:
+
+```bash
+uv run ./create_map_poster.py -c "Boston" -C "USA" -t noir -d 8000 \
+    --route-file marathon.gpx --route-glow --route-color "#FF3B30"
+```
+
+| Field | CLI flag | Default | Notes |
+|-------|----------|---------|-------|
+| `route` | — | — | Inline list of `[lat, lon]` points |
+| `route_file` | `--route-file` | — | Path to a `.gpx` file; alternative to `route` |
+| `route_color` | `--route-color` | theme's `route`/`poi` colour | Any hex colour |
+| `route_width` | `--route-width` | `2.5` | Line width |
+| `route_style` | `--route-style` | `"solid"` | `"solid"` or `"dashed"` |
+| `route_glow` | `--route-glow` | `false` | Adds a soft bloom around the line |
+
+### Pinning a custom marker
+
+```json
+{
+    "marker": [41.4036, 2.1744],
+    "marker_label": "Sagrada Família",
+    "marker_color": null,
+    "marker_style": "star"
+}
+```
+
+Or from the command line:
+
+```bash
+uv run ./create_map_poster.py -c "Paris" -C "France" -t rose_gold -d 6000 \
+    --marker-lat 48.8584 --marker-lon 2.2945 --marker-label "Where we got engaged"
+```
+
+| Field | CLI flag | Default | Notes |
+|-------|----------|---------|-------|
+| `marker` | `--marker-lat` / `--marker-lon` | — | `[lat, lon]` (preset) or two separate floats (CLI) |
+| `marker_label` | `--marker-label` | — | Text shown next to the marker |
+| `marker_color` | `--marker-color` | theme's `marker`/`poi` colour | Any hex colour |
+| `marker_style` | `--marker-style` | `"star"` | `"star"`, `"dot"`, `"diamond"`, or `"pin"` |
+
+See [`presets/barcelona_full.json`](presets/barcelona_full.json) for both in use together.
 
 ---
 

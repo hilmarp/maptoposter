@@ -15,6 +15,7 @@ import os
 import pickle
 import sys
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -215,6 +216,56 @@ def load_preset(preset_path: str) -> dict:
         return json.load(f)
 
 
+def parse_gpx_route(gpx_path: str) -> list[tuple[float, float]]:
+    """Extract an ordered list of (lat, lon) points from a GPX track or route file."""
+    tree = ET.parse(gpx_path)
+    root = tree.getroot()
+    ns_uri = root.tag.split("}")[0].strip("{") if root.tag.startswith("{") else ""
+    ns = {"gpx": ns_uri} if ns_uri else {}
+
+    def tag(name: str) -> str:
+        return f"gpx:{name}" if ns else name
+
+    points = [
+        (float(pt.get("lat")), float(pt.get("lon")))
+        for pt in root.findall(f".//{tag('trkpt')}", ns)
+    ]
+    if not points:
+        points = [
+            (float(pt.get("lat")), float(pt.get("lon")))
+            for pt in root.findall(f".//{tag('rtept')}", ns)
+        ]
+    return points
+
+
+def load_route_points(
+    route: list | None, route_file: str | None
+) -> list[tuple[float, float]] | None:
+    """Resolve a route from either an inline [[lat, lon], ...] list or a GPX file."""
+    if route_file:
+        points = parse_gpx_route(route_file)
+        if not points:
+            print(f"⚠ No track/route points found in GPX file '{route_file}'.")
+            return None
+        print(f"✓ Loaded route from {route_file} ({len(points)} points)")
+        return points
+    if route:
+        return [(float(lat), float(lon)) for lat, lon in route]
+    return None
+
+
+def resolve_marker_point(
+    marker: list | None, marker_lat: float | None, marker_lon: float | None
+) -> tuple[float, float] | None:
+    """Resolve a single custom marker location from either an inline [lat, lon] or separate lat/lon."""
+    if marker:
+        lat, lon = marker
+        return (float(lat), float(lon))
+    if marker_lat is not None and marker_lon is not None:
+        return (float(marker_lat), float(marker_lon))
+    return None
+
+
 def load_font_pair(
     font_family: str | None,
     body_font_family: str | None,
@@ -254,7 +305,11 @@ THEME: dict = {}
 
 
 def create_gradient_fade(
-    ax, color: str, location: str = "bottom", zorder: float = 10
+    ax,
+    color: str,
+    location: str = "bottom",
+    zorder: float = 10,
+    intensity: float = 1.0,
 ) -> None:
     vals = np.linspace(0, 1, 256).reshape(-1, 1)
     gradient = np.hstack((vals, vals))
@@ -264,10 +319,10 @@ def create_gradient_fade(
     my_colors[:, 1] = rgb[1]
     my_colors[:, 2] = rgb[2]
     if location == "bottom":
-        my_colors[:, 3] = np.linspace(1, 0, 256)
+        my_colors[:, 3] = np.linspace(1, 0, 256) * intensity
         extent_y_start, extent_y_end = 0, 0.25
     else:
-        my_colors[:, 3] = np.linspace(0, 1, 256)
+        my_colors[:, 3] = np.linspace(0, 1, 256) * intensity
         extent_y_start, extent_y_end = 0.75, 1.0
     custom_cmap = mcolors.ListedColormap(my_colors)
     xlim = ax.get_xlim()
@@ -500,6 +555,107 @@ def draw_poster_border(ax, style: str = "single", scale_factor: float = 1.0) -> 
             transform=ax.transAxes, fill=False,
             edgecolor=color, linewidth=lw * 0.5, alpha=alpha * 0.7, zorder=14,
         ))
+
+
+def draw_route(
+    ax,
+    g_proj,
+    route_points: list[tuple[float, float]],
+    line_scale: float,
+    color: str | None,
+    width: float,
+    style: str,
+    glow: bool,
+    zorder: float = 7.5,
+) -> None:
+    """Draw a highlighted custom route (e.g. a run, hike, or walk) over the map."""
+    crs = g_proj.graph["crs"]
+    projected = [
+        ox.projection.project_geometry(Point(lon, lat), crs="EPSG:4326", to_crs=crs)[0]
+        for lat, lon in route_points
+    ]
+    xs = [p.x for p in projected]
+    ys = [p.y for p in projected]
+    route_color = color or THEME.get("route", THEME["poi"])
+    linestyle = (0, (6, 3)) if style == "dashed" else "solid"
+
+    if glow:
+        for width_mult, alpha in [(6.0, 0.05), (3.5, 0.10), (2.0, 0.18)]:
+            ax.plot(
+                xs,
+                ys,
+                color=route_color,
+                linewidth=width * width_mult * line_scale,
+                alpha=alpha,
+                solid_capstyle="round",
+                zorder=zorder - 0.1,
+            )
+
+    ax.plot(
+        xs,
+        ys,
+        color=route_color,
+        linewidth=width * line_scale,
+        linestyle=linestyle,
+        solid_capstyle="round",
+        alpha=0.95,
+        zorder=zorder,
+    )
+
+
+MARKER_SYMBOLS = {"star": "*", "dot": "o", "diamond": "D", "pin": "v"}
+
+
+def draw_marker(
+    ax,
+    g_proj,
+    point: tuple[float, float],
+    label: str | None,
+    color: str | None,
+    style: str,
+    scale_factor: float,
+    label_fonts: dict | None,
+    zorder: float = 12.5,
+) -> None:
+    """Mark a single custom location (e.g. 'our house', 'where we met') with a symbol + label."""
+    crs = g_proj.graph["crs"]
+    lat, lon = point
+    projected = ox.projection.project_geometry(
+        Point(lon, lat), crs="EPSG:4326", to_crs=crs
+    )[0]
+    marker_color = color or THEME.get("marker", THEME["poi"])
+    symbol = MARKER_SYMBOLS.get(style, "*")
+
+    ax.plot(
+        [projected.x],
+        [projected.y],
+        marker=symbol,
+        markersize=16 * scale_factor,
+        markerfacecolor=marker_color,
+        markeredgecolor=THEME["bg"],
+        markeredgewidth=1.0 * scale_factor,
+        linestyle="none",
+        zorder=zorder,
+    )
+
+    if label:
+        if label_fonts:
+            font_label = FontProperties(
+                fname=label_fonts["regular"], size=9 * scale_factor
+            )
+        else:
+            font_label = FontProperties(family="monospace", size=9 * scale_factor)
+        ax.annotate(
+            label,
+            xy=(projected.x, projected.y),
+            xytext=(0, 10 * scale_factor),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            color=marker_color,
+            fontproperties=font_label,
+            zorder=zorder,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -768,6 +924,7 @@ def create_poster(
     show_compass: bool = True,
     show_scale_bar: bool = True,
     use_vignette: bool = False,
+    gradient_intensity: float = 1.0,
     road_casing: bool = False,
     paper_texture: bool = False,
     paper_texture_opacity: float = 0.07,
@@ -782,6 +939,15 @@ def create_poster(
     road_glow: bool = False,
     road_glow_intensity: float = 0.5,
     directional_roads: bool = False,
+    route_points: list[tuple[float, float]] | None = None,
+    route_color: str | None = None,
+    route_width: float = 2.5,
+    route_style: str = "solid",
+    route_glow: bool = False,
+    marker_point: tuple[float, float] | None = None,
+    marker_label: str | None = None,
+    marker_color: str | None = None,
+    marker_style: str = "star",
 ) -> None:
     if poi_dict is None:
         poi_dict = {}
@@ -1151,6 +1317,19 @@ def create_poster(
                 zorder=1.6,
             )
 
+    # Layer 2d: Custom route overlay
+    if route_points:
+        draw_route(
+            ax,
+            g_proj,
+            route_points,
+            line_scale,
+            route_color,
+            route_width,
+            route_style,
+            route_glow,
+        )
+
     # Layer 3: Historic dots
     if show_historic and historic is not None and not historic.empty:
         try:
@@ -1208,8 +1387,20 @@ def create_poster(
     if use_vignette:
         create_vignette(ax, THEME["gradient_color"], zorder=10)
     else:
-        create_gradient_fade(ax, THEME["gradient_color"], location="bottom", zorder=10)
-        create_gradient_fade(ax, THEME["gradient_color"], location="top", zorder=10)
+        create_gradient_fade(
+            ax,
+            THEME["gradient_color"],
+            location="bottom",
+            zorder=10,
+            intensity=gradient_intensity,
+        )
+        create_gradient_fade(
+            ax,
+            THEME["gradient_color"],
+            location="top",
+            zorder=10,
+            intensity=gradient_intensity,
+        )
 
     # Layer 4.5: Paper texture
     if paper_texture:
@@ -1253,6 +1444,17 @@ def create_poster(
         draw_scale_bar(ax, crop_xlim, scale_factor, units_m=1000)
     if border:
         draw_poster_border(ax, border_style, scale_factor)
+    if marker_point:
+        draw_marker(
+            ax,
+            g_proj,
+            marker_point,
+            marker_label,
+            marker_color,
+            marker_style,
+            scale_factor,
+            body_fonts or fonts or FONTS,
+        )
 
     # -------------------------------------------------------------------------
     # Typography
@@ -1438,6 +1640,15 @@ def run_batch(
 
     print(f"Found {len(rows)} entries.\n")
 
+    route_points = load_route_points(
+        getattr(global_args, "route", None), global_args.route_file
+    )
+    marker_point = resolve_marker_point(
+        getattr(global_args, "marker", None),
+        global_args.marker_lat,
+        global_args.marker_lon,
+    )
+
     for i, row in enumerate(rows, 1):
         city = row.get("city", "").strip()
         country = row.get("country", "").strip()
@@ -1492,6 +1703,7 @@ def run_batch(
                 show_compass=global_args.show_compass,
                 show_scale_bar=global_args.show_scale_bar,
                 use_vignette=global_args.use_vignette,
+                gradient_intensity=global_args.gradient_intensity,
                 road_casing=global_args.road_casing,
                 paper_texture=global_args.paper_texture,
                 paper_texture_opacity=global_args.paper_texture_opacity,
@@ -1506,6 +1718,15 @@ def run_batch(
                 road_glow=global_args.road_glow,
                 road_glow_intensity=global_args.road_glow_intensity,
                 directional_roads=global_args.directional_roads,
+                route_points=route_points,
+                route_color=global_args.route_color,
+                route_width=global_args.route_width,
+                route_style=global_args.route_style,
+                route_glow=global_args.route_glow,
+                marker_point=marker_point,
+                marker_label=global_args.marker_label,
+                marker_color=global_args.marker_color,
+                marker_style=global_args.marker_style,
             )
         except Exception as e:
             print(f"  ✗ Failed: {e}")
@@ -1538,6 +1759,10 @@ Examples:
       --road-casing --paper-texture --coord-format dms --subtitle "Est. 917 AD"
   python create_map_poster.py -c "London" -C "UK" -t noir -d 15000 --road-casing
   python create_map_poster.py -c "Paris" -C "France" -t pastel_dream -d 10000 --text-position top
+  python create_map_poster.py -c "Boston" -C "USA" -t noir -d 8000 \\
+      --route-file marathon.gpx --route-glow --route-color "#FF3B30"
+  python create_map_poster.py -c "Paris" -C "France" -t rose_gold -d 6000 \\
+      --marker-lat 48.8584 --marker-lon 2.2945 --marker-label "Where we got engaged"
   python create_map_poster.py --batch cities.csv -t terracotta
   python create_map_poster.py --preset my_preset.json
   python create_map_poster.py --list-themes
@@ -1661,6 +1886,13 @@ if __name__ == "__main__":
         "--no-cycle-routes", dest="show_cycle_routes", action="store_false"
     )
     parser.add_argument("--vignette", dest="use_vignette", action="store_true")
+    parser.add_argument(
+        "--gradient-intensity",
+        dest="gradient_intensity",
+        type=float,
+        default=1.0,
+        help="Strength of the top/bottom gradient fade, 0-1 (default: 1.0)",
+    )
     parser.add_argument("--no-compass", dest="show_compass", action="store_false")
     parser.add_argument("--no-scale-bar", dest="show_scale_bar", action="store_false")
     parser.add_argument("--border", dest="border", action="store_true")
@@ -1692,6 +1924,57 @@ if __name__ == "__main__":
         action="store_true",
         help="Color roads by compass bearing instead of road type",
     )
+    parser.add_argument(
+        "--route-file",
+        dest="route_file",
+        type=str,
+        default=None,
+        help="GPX file with a track/route to highlight on the map (a run, hike, walk, etc.)",
+    )
+    parser.add_argument(
+        "--route-color",
+        dest="route_color",
+        type=str,
+        default=None,
+        help="Override color for the route line (defaults to theme's 'route' or 'poi' color)",
+    )
+    parser.add_argument("--route-width", dest="route_width", type=float, default=2.5)
+    parser.add_argument(
+        "--route-style",
+        dest="route_style",
+        type=str,
+        default="solid",
+        choices=["solid", "dashed"],
+    )
+    parser.add_argument(
+        "--route-glow",
+        dest="route_glow",
+        action="store_true",
+        help="Add a soft bloom around the route line",
+    )
+    parser.add_argument(
+        "--marker-lat",
+        dest="marker_lat",
+        type=float,
+        default=None,
+        help="Latitude of a custom pin to highlight (e.g. 'our house', 'where we met')",
+    )
+    parser.add_argument("--marker-lon", dest="marker_lon", type=float, default=None)
+    parser.add_argument("--marker-label", dest="marker_label", type=str, default=None)
+    parser.add_argument(
+        "--marker-color",
+        dest="marker_color",
+        type=str,
+        default=None,
+        help="Override color for the marker (defaults to theme's 'marker' or 'poi' color)",
+    )
+    parser.add_argument(
+        "--marker-style",
+        dest="marker_style",
+        type=str,
+        default="star",
+        choices=["star", "dot", "diamond", "pin"],
+    )
 
     parser.set_defaults(
         show_buildings=True,
@@ -1713,6 +1996,16 @@ if __name__ == "__main__":
         road_glow=False,
         road_glow_intensity=0.5,
         directional_roads=False,
+        route_file=None,
+        route_color=None,
+        route_width=2.5,
+        route_style="solid",
+        route_glow=False,
+        marker_lat=None,
+        marker_lon=None,
+        marker_label=None,
+        marker_color=None,
+        marker_style="star",
     )
 
     args = parser.parse_args()
@@ -1790,6 +2083,11 @@ if __name__ == "__main__":
             else {}
         )
 
+        route_points = load_route_points(getattr(args, "route", None), args.route_file)
+        marker_point = resolve_marker_point(
+            getattr(args, "marker", None), args.marker_lat, args.marker_lon
+        )
+
         for theme_name in themes_to_generate:
             THEME = load_theme(theme_name)
             output_file = generate_output_filename(
@@ -1822,6 +2120,7 @@ if __name__ == "__main__":
                 show_compass=args.show_compass,
                 show_scale_bar=args.show_scale_bar,
                 use_vignette=args.use_vignette,
+                gradient_intensity=args.gradient_intensity,
                 road_casing=args.road_casing,
                 paper_texture=args.paper_texture,
                 paper_texture_opacity=args.paper_texture_opacity,
@@ -1836,6 +2135,15 @@ if __name__ == "__main__":
                 road_glow=args.road_glow,
                 road_glow_intensity=args.road_glow_intensity,
                 directional_roads=args.directional_roads,
+                route_points=route_points,
+                route_color=args.route_color,
+                route_width=args.route_width,
+                route_style=args.route_style,
+                route_glow=args.route_glow,
+                marker_point=marker_point,
+                marker_label=args.marker_label,
+                marker_color=args.marker_color,
+                marker_style=args.marker_style,
             )
 
         print("\n" + "=" * 50)

@@ -31,6 +31,7 @@
     "border_style": "double",
 
     "use_vignette": false,
+    "gradient_intensity": 1.0,
     "paper_texture": true,
     "paper_texture_opacity": 0.07,
     "cmyk_safe": false,
@@ -45,5 +46,23 @@
     "show_historic": true,
     "show_cycle_routes": false,
     "show_compass": true,
-    "show_scale_bar": true
+    "show_scale_bar": true,
+
+    "route": [
+        [41.3870, 2.1701],
+        [41.3831, 2.1741],
+        [41.3801, 2.1774],
+        [41.3752, 2.1804],
+        [41.3739, 2.1875],
+        [41.3784, 2.1925]
+    ],
+    "route_color": null,
+    "route_width": 2.5,
+    "route_style": "solid",
+    "route_glow": false,
+
+    "marker": [41.4036, 2.1744],
+    "marker_label": "Sagrada Família",
+    "marker_color": null,
+    "marker_style": "star"
 }

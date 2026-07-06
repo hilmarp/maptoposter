@@ -1,8 +1,10 @@
 {
     "city": "Reykjavik",
     "country": "Iceland",
+    "latitude": "64.114005",
+    "longitude": "-21.840940",
     "theme": "arctic",
-    "distance": 16000,
+    "distance": 20000,
     "width": 11.69,
     "height": 16.54,
     "font_family": "Playfair Display",
@@ -10,7 +12,7 @@
     "display_city": "Reykjavik",
     "display_country": "Iceland",
     "coord_format": "dms",
-    "text_position": "top",
+    "text_position": "bottom",
     "dpi": 300,
     "road_casing": true,
     "road_glow": false,
@@ -31,5 +33,6 @@
     "show_cycle_routes": false,
     "show_compass": false,
     "show_scale_bar": false,
-    "use_vignette": false
+    "use_vignette": false,
+    "gradient_intensity": 0.4
 }

@@ -62,6 +62,7 @@ Key preset fields:
 | `directional_roads` | false | Colour roads by compass bearing |
 | `paper_texture` | false | `paper_texture_opacity`: 0.05–0.15 |
 | `use_vignette` | false | Radial fade instead of gradient |
+| `gradient_intensity` | 1.0 | Strength of the top/bottom gradient fade, 0–1; lower it if the fade feels too heavy |
 | `cmyk_safe` | false | Desaturates for commercial print |
 | `line_scale` | 1.0 | Scale all line widths |
 | `show_buildings` | false | |
@@ -74,6 +75,16 @@ Key preset fields:
 | `show_cycle_routes` | false | |
 | `show_compass` | false | |
 | `show_scale_bar` | false | |
+| `route` | — | List of `[lat, lon]` pairs to highlight as a route (a run, hike, walk) |
+| `route_file` | — | GPX file path, alternative to inline `route` |
+| `route_color` | theme's `route`/`poi` | Override hex colour for the route line |
+| `route_width` | 2.5 | Route line width |
+| `route_style` | `"solid"` | `"solid"` or `"dashed"` |
+| `route_glow` | false | Soft bloom around the route line |
+| `marker` | — | `[lat, lon]` pin for a single custom location (e.g. "our house") |
+| `marker_label` | — | Text shown next to the marker |
+| `marker_color` | theme's `marker`/`poi` | Override hex colour for the marker |
+| `marker_style` | `"star"` | `"star"`, `"dot"`, `"diamond"`, or `"pin"` |
 
 ## Themes
 
